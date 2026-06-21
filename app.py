@@ -78,7 +78,7 @@ tab1, tab2, tab3, tab4 = st.tabs(
         "📊 Analisis Komersial & Revenue",
         "📦 Manajemen & Optimasi Stok",
         "📋 Intelijen Operasional Lapangan",
-        "🔮 Peramalan & Optimasi (ML)",
+        "🔮 Peramalan & Prediksi (LightGBM/XGBoost)",
     ]
 )
 
