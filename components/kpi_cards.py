@@ -3,9 +3,15 @@ import streamlit as st
 def render_kpi_cards(df_rev_filtered, df_opt_filtered, df_surv_filtered):
     # Perhitungan KPI
     total_revenue = df_rev_filtered['target_revenue'].sum()
-    total_sell_in = df_opt_filtered['actual_tonase_in'].sum()
-    total_sell_out = df_opt_filtered['total_sellout_gudang'].sum()
-    net_stock_delta = total_sell_in - total_sell_out
+    
+    if not df_opt_filtered.empty:
+        total_sell_in = df_opt_filtered['actual_tonase_in'].sum()
+        total_sell_out = df_opt_filtered.groupby(['week_start', 'kode_gudang'])['total_sellout_gudang'].first().sum()
+        net_stock_delta = total_sell_in - total_sell_out
+    else:
+        total_sell_in = 0
+        total_sell_out = 0
+        net_stock_delta = 0
 
     avg_fill_rate = df_surv_filtered['avg_fill_rate'].mean() if not df_surv_filtered.empty else 0
     avg_stock_util = df_surv_filtered['avg_stock_utilization'].mean() if not df_surv_filtered.empty else 0

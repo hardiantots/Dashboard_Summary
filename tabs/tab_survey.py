@@ -26,8 +26,16 @@ def render_tab_survey(df_surv_filtered):
         fig_health = go.Figure()
         fig_health.add_trace(go.Bar(y=df_health['provinsi'], x=df_health['avg_fill_rate'], name='Fill Rate (%)', orientation='h', marker_color='#2ecc71'))
         fig_health.add_trace(go.Bar(y=df_health['provinsi'], x=df_health['stockout_rate'], name='Stockout Rate (%)', orientation='h', marker_color='#e74c3c'))
-        fig_health.update_layout(barmode='group', title="Perbandingan Fill Rate vs Stockout Rate Toko per Provinsi",
-                                 xaxis_title="Persentase (%)", yaxis_title="Provinsi", template="plotly_white", hovermode="y unified")
+        fig_health.update_layout(
+            barmode='group', 
+            title="Perbandingan Fill Rate vs Stockout Rate Toko per Provinsi",
+            xaxis_title="Persentase (%)", 
+            yaxis_title="Provinsi", 
+            template="plotly_white", 
+            hovermode="y unified",
+            height=700,  # Memperbesar tinggi agar seluruh provinsi memiliki ruang yang cukup dan sejajar
+            yaxis={'categoryorder': 'total ascending'}  # Memastikan urutan teratur berdasarkan nilai Fill Rate
+        )
         st.plotly_chart(fig_health, use_container_width=True)
         
         st.markdown("---")

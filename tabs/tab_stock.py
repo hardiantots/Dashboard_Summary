@@ -53,7 +53,6 @@ def render_tab_stock(df_opt_filtered, api_key):
         # ─────────────────────────────────────────────────────────────────
         st.markdown("### ⚡ Prescriptive Solver (PuLP Alokasi Logistik)")
 
-        # GAP-5 FIX: Disclaimer metodologi solver sebelum tombol dijalankan
         with st.expander("ℹ️ Catatan Metodologi Solver", expanded=False):
             st.info(
                 "**Tingkat Agregasi:** Solver ini beroperasi pada level **gudang** "
@@ -148,18 +147,26 @@ def render_tab_stock(df_opt_filtered, api_key):
                     st.error(f"Gagal menjalankan Solver PuLP: {e}")
 
         # ─────────────────────────────────────────────────────────────────
-        # 📊 ANALISIS SELL-IN vs SELL-OUT PER PROVINSI
+        # 📊 ANALISIS SELL-IN vs SELL-OUT & COVERAGE RATIO PER PROVINSI
         # ─────────────────────────────────────────────────────────────────
         st.markdown("---")
-        df_prov_stock = (
+        
+        df_prov_si = (
             df_opt_tab2
-            .groupby("provinsi")[["actual_tonase_in", "total_sellout_gudang"]]
+            .groupby("provinsi")["actual_tonase_in"]
             .sum()
             .reset_index()
         )
+        df_prov_so = (
+            df_opt_tab2
+            .groupby(["provinsi", "week_start", "kode_gudang"])["total_sellout_gudang"]
+            .first()
+            .groupby("provinsi")
+            .sum()
+            .reset_index()
+        )
+        df_prov_stock = pd.merge(df_prov_si, df_prov_so, on="provinsi", how="left")
 
-        # Coverage Ratio = SI/SO: rasio pasokan masuk vs penyerapan demand
-        # Menghindari division-by-zero: replace 0 dengan NaN lalu fill 0
         df_prov_stock["coverage_ratio"] = (
             df_prov_stock["actual_tonase_in"]
             / df_prov_stock["total_sellout_gudang"].replace(0, np.nan)
@@ -187,8 +194,6 @@ def render_tab_stock(df_opt_filtered, api_key):
         )
         st.plotly_chart(fig3, use_container_width=True)
 
-        # ── Alert Defisit / Surplus Pasokan ───────────────────────────────
-        # Definisi: SI/SO < COVERAGE_LOWER → Defisit; SI/SO > COVERAGE_UPPER → Surplus
         under_supplied = df_prov_stock[
             df_prov_stock["coverage_ratio"] < COVERAGE_LOWER
         ]["provinsi"].tolist()
@@ -258,21 +263,32 @@ def render_tab_stock(df_opt_filtered, api_key):
         st.subheader("Analisis Utilisasi Gudang vs Suplai Aktual")
         df_util = (
             df_opt_tab2
-            .groupby("kode_gudang")[["actual_tonase_in", "utilisasi_vs_ca"]]
-            .mean()
+            .groupby("kode_gudang")
+            .agg(
+                total_actual_in=("actual_tonase_in", "sum"),
+                total_target_ca=("target_tonase_ca", "sum"),
+                avg_actual_in=("actual_tonase_in", "mean")
+            )
             .reset_index()
         )
+        
+        # Hitung rasio secara keseluruhan (menghindari division-by-zero mingguan)
+        df_util["utilisasi_vs_ca"] = df_util.apply(
+            lambda r: r["total_actual_in"] / r["total_target_ca"] if r["total_target_ca"] > 0 else 0.0,
+            axis=1
+        )
+        
         fig_util = px.scatter(
             df_util,
-            x="actual_tonase_in",
+            x="avg_actual_in",
             y="utilisasi_vs_ca",
             text="kode_gudang",
-            size="actual_tonase_in",
+            size="avg_actual_in",
             color="utilisasi_vs_ca",
             color_continuous_scale="RdYlGn_r",
             title="Peta Utilisasi Gudang (Mendeteksi Overcapacity)",
             labels={
-                "actual_tonase_in": "Rata-rata Tonase Masuk (Suplai)",
+                "avg_actual_in": "Rata-rata Tonase Masuk (Suplai)",
                 "utilisasi_vs_ca":  "Utilisasi Kapasitas (rasio SI/CA)",
             },
         )
@@ -285,29 +301,10 @@ def render_tab_stock(df_opt_filtered, api_key):
         )
         st.plotly_chart(fig_util, use_container_width=True)
 
-        # ─────────────────────────────────────────────────────────────────
-        # 📊 ANALISIS KESEIMBANGAN DISTRIBUSI — COVERAGE RATIO (SI/SO)
-        # ─────────────────────────────────────────────────────────────────
         st.markdown("---")
         st.subheader("Analisis Keseimbangan Distribusi (Coverage Ratio SI/SO)")
 
-        df_cov = (
-            df_opt_tab2
-            .groupby("provinsi")[["actual_tonase_in", "total_sellout_gudang"]]
-            .sum()
-            .reset_index()
-        )
-
-        # GAP-1 FIX: Coverage Ratio = SI/SO (konsisten dengan definisi di alert section)
-        # Interpretasi:
-        #   SI/SO < COVERAGE_LOWER → Defisit Pasokan (butuh injeksi supply)
-        #   SI/SO > COVERAGE_UPPER → Surplus Pasokan (butuh relokasi / promosi)
-        df_cov["coverage_ratio"] = (
-            df_cov["actual_tonase_in"]
-            / df_cov["total_sellout_gudang"].replace(0, np.nan)
-        ).fillna(0)
-
-        df_cov = df_cov.sort_values(by="coverage_ratio", ascending=True)
+        df_cov = df_prov_stock.sort_values(by="coverage_ratio", ascending=True)
 
         df_cov["status"] = df_cov["coverage_ratio"].apply(
             lambda x: "Defisit Pasokan (Under-supplied)"
