@@ -6,7 +6,7 @@ def render_kpi_cards(df_rev_filtered, df_opt_filtered, df_surv_filtered):
     
     if not df_opt_filtered.empty:
         total_sell_in = df_opt_filtered['actual_tonase_in'].sum()
-        total_sell_out = df_opt_filtered.groupby(['week_start', 'kode_gudang'])['total_sellout_gudang'].first().sum()
+        total_sell_out = df_opt_filtered['allocated_sellout'].sum()
         net_stock_delta = total_sell_in - total_sell_out
     else:
         total_sell_in = 0

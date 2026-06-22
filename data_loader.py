@@ -86,8 +86,17 @@ def load_data():
     df_revenue["periode"] = pd.to_datetime(df_revenue["periode"])
 
     # ── Optimasi Stok (gudang × material × minggu) ─────────────────────────
+    import numpy as np
     df_optim = pd.read_csv(path_optim)
     df_optim["week_start"] = pd.to_datetime(df_optim["week_start"])
+    
+    # Alokasi proporsional total_sellout_gudang ke masing-masing material (karena raw data hanya level gudang)
+    gudang_week_total_in = df_optim.groupby(['week_start', 'kode_gudang'])['actual_tonase_in'].transform('sum')
+    n_materials = df_optim.groupby(['week_start', 'kode_gudang'])['material_code'].transform('count')
+    df_optim['sell_in_prop'] = np.where(gudang_week_total_in > 0, 
+                                        df_optim['actual_tonase_in'] / gudang_week_total_in, 
+                                        1.0 / n_materials)
+    df_optim['allocated_sellout'] = df_optim['total_sellout_gudang'] * df_optim['sell_in_prop']
 
     # ── Survei Lapangan (salesman × provinsi × bulan) ──────────────────────
     # year_month di CSV berformat 'YYYY-MM', dikonversi ke tanggal awal bulan

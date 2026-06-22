@@ -159,12 +159,11 @@ def render_tab_stock(df_opt_filtered, api_key):
         )
         df_prov_so = (
             df_opt_tab2
-            .groupby(["provinsi", "week_start", "kode_gudang"])["total_sellout_gudang"]
-            .first()
-            .groupby("provinsi")
+            .groupby("provinsi")["allocated_sellout"]
             .sum()
             .reset_index()
         )
+        df_prov_so.rename(columns={"allocated_sellout": "total_sellout_gudang"}, inplace=True)
         df_prov_stock = pd.merge(df_prov_si, df_prov_so, on="provinsi", how="left")
 
         df_prov_stock["coverage_ratio"] = (
